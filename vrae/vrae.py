@@ -42,7 +42,7 @@ class Encoder(nn.Module):
         :return: last hidden state of encoder, of shape (batch_size, hidden_size)
         """
 
-        _, (h_end, c_end) = self.model(x)
+        _, h_end = self.model(x)
 
         h_end = h_end[-1, :, :]
         return h_end
@@ -139,7 +139,6 @@ class Decoder(nn.Module):
             decoder_output, _ = self.model(self.decoder_inputs, h_0)
         else:
             raise NotImplementedError
-
         out = self.hidden_to_output(decoder_output)
         return out
 
