@@ -254,7 +254,7 @@ class VRAE(BaseEstimator, nn.Module):
 
         return x_decoded, latent
 
-    def _rec(self, x_decoded, x, loss_fn):
+    def _rec(self, x_decoded, x, loss_fn, epoch):
         """
         Compute the loss given output x decoded, input x and the specified loss function
 
@@ -268,9 +268,9 @@ class VRAE(BaseEstimator, nn.Module):
         kl_loss = -0.5 * torch.mean(1 + latent_logvar - latent_mean.pow(2) - latent_logvar.exp())
         recon_loss = loss_fn(x_decoded, x)
 
-        return kl_loss + recon_loss, recon_loss, kl_loss
+        return 72 / self.batch_size * epoch / self.n_epochs * kl_loss + recon_loss, recon_loss, kl_loss
 
-    def compute_loss(self, X):
+    def compute_loss(self, X, epoch):
         """
         Given input tensor, forward propagate, compute the loss, and backward propagate.
         Represents the lifecycle of a single iteration
@@ -281,12 +281,15 @@ class VRAE(BaseEstimator, nn.Module):
         x = Variable(X[:,:,:].type(self.dtype), requires_grad = True)
 
         x_decoded, _ = self(x)
-        loss, recon_loss, kl_loss = self._rec(x_decoded, x.detach(), self.loss_fn)
+        orig_std = x.std(axis=0)
+        recon_std = x_decoded.std(axis=0)
+        print("Average std of reconstructed sequences:", recon_std.mean().item())
+        loss, recon_loss, kl_loss = self._rec(x_decoded, x.detach(), self.loss_fn, epoch)
 
         return loss, recon_loss, kl_loss, x
 
 
-    def _train(self, train_loader):
+    def _train(self, train_loader, epoch):
         """
         For each epoch, given the batch_size, run this function batch_size * num_of_batches number of times
 
@@ -309,7 +312,7 @@ class VRAE(BaseEstimator, nn.Module):
             X = X.permute(1,0,2)
 
             self.optimizer.zero_grad()
-            loss, recon_loss, kl_loss, _ = self.compute_loss(X)
+            loss, recon_loss, kl_loss, _ = self.compute_loss(X, epoch)
             loss.backward()
 
             if self.clip:
@@ -346,7 +349,7 @@ class VRAE(BaseEstimator, nn.Module):
         for i in range(self.n_epochs):
             print('Epoch: %s' % i)
 
-            traj.append(self._train(train_loader))
+            traj.append(self._train(train_loader, i))
 
         self.is_fitted = True
         if save:
